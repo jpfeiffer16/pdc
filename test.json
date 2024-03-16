@@ -1,0 +1,14 @@
+{
+    "array": [
+        1,
+        false,
+        true,
+        "item",
+    ],
+    "object": {
+        "number": 100001,
+        "boolt": true,
+        "boolf": false,
+        "string": "string"
+    }
+}
