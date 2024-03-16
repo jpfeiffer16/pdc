@@ -54,10 +54,28 @@ typedef struct {
   char *value;
 } token;
 
-typedef struct token_list {
-  struct token_list *next;
+typedef struct token_node {
+  struct token_node *next;
   token token;
+} token_node;
+
+typedef struct {
+  token_node *tail;
+  token_node *head;
 } token_list;
+
+token_node* new_token(token_list *list) {
+  token_node *tk_l = malloc(sizeof(token_node));
+  if (!list->tail) {
+    list->tail = tk_l;
+    list->head = tk_l;
+  } else {
+    list->head->next = tk_l;
+    list->head = tk_l;
+  }
+
+  return tk_l;
+}
 
 typedef struct {
   token_list *tokens;
@@ -68,92 +86,49 @@ typedef struct {
 } tokenize_result;
 
 tokenize_result tokenize(char *buf, long buf_len, int idx) {
+  token_list *tlist = malloc(sizeof(token_list));
   char ch = buf[idx];
-  token_list *list = NULL;
-  token_list *head = list;
-
-  tokenize_result err = { .status = ERROR };
 
   do {
     switch (ch) {
       case '{': {
-        token_list *tk_l = malloc(sizeof(token_list));
+        token_node *tk_l = new_token(tlist);
         token tk = { .type = LBRACE, .value = "{" };
         tk_l->token = tk;
-        if (!list) {
-          list = tk_l;
-        } else {
-          head->next = tk_l;
-        }
-        head = tk_l;
         break;
       }
       case '}': {
-        token_list *tk_l = malloc(sizeof(token_list));
+        token_node *tk_l = new_token(tlist);
         token tk = { .type = RBRACE, .value = "}" };
         tk_l->token = tk;
-        if (!list) {
-          err.error = "Lex error.\n";
-          return err;
-        } else {
-          head->next = tk_l;
-        }
-        head = tk_l;
         break;
       }
       case '[': {
-        token_list *tk_l = malloc(sizeof(token_list));
+        token_node *tk_l = new_token(tlist);
         token tk = { .type = LBRACKET, .value = "[" };
         tk_l->token = tk;
-        if (!list) {
-          list = tk_l;
-        } else {
-          head->next = tk_l;
-        }
-        head = tk_l;
         break;
       }
       case ']': {
-        token_list *tk_l = malloc(sizeof(token_list));
+        token_node *tk_l = new_token(tlist);
         token tk = { .type = RBRACKET, .value = "]" };
         tk_l->token = tk;
-        if (!list) {
-          err.error = "Lex error.\n";
-          return err;
-        } else {
-          head->next = tk_l;
-        }
-        head = tk_l;
         break;
       }
       case ',': {
-        token_list *tk_l = malloc(sizeof(token_list));
+        token_node *tk_l = new_token(tlist);
         token tk = { .type = COMMA, .value = "," };
         tk_l->token = tk;
-        if (!list) {
-          err.error = "Lex error.\n";
-          return err;
-        } else {
-          head->next = tk_l;
-        }
-        head = tk_l;
         break;
       }
       case ':': {
-        token_list *tk_l = malloc(sizeof(token_list));
+        token_node *tk_l = new_token(tlist);
         token tk = { .type = COLON, .value = ":" };
         tk_l->token = tk;
-        if (!list) {
-          err.error = "Lex error.\n";
-          return err;
-        } else {
-          head->next = tk_l;
-        }
-        head = tk_l;
         break;
       }
       case '"': {
-        token_list *tk_l = malloc(sizeof(token_list));
+        token_node *tk_l = new_token(tlist);
         int begin = ++idx;
         while (buf[++idx] != '"') {
           if (buf[idx] == '\\') idx++;
@@ -165,17 +140,11 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
         val[val_size] = '\0';
         token tk = { .type = STR, .value = val };
         tk_l->token = tk;
-        if (!list) {
-          list = tk_l;
-        } else {
-          head->next = tk_l;
-        }
-        head = tk_l;
         break;
       }
       default: {
         if (ch > 32 && ch < 127) {
-          token_list *tk_l = malloc(sizeof(token_list));
+          token_node *tk_l = new_token(tlist);
           int begin = idx;
           while (buf[++idx] != '{'
               && buf[idx]   != '}'
@@ -190,29 +159,26 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
           val[len] = '\0';
           token tk = { .type = IDENTIFIER, .value = val };
           tk_l->token = tk;
-          if (!list) {
-            list = tk_l;
-          } else {
-            head->next = tk_l;
-          }
-          head = tk_l;
         }
         break;
       }
     }
   } while ((ch = buf[++idx]) != EOF);
 
-  /* parse_result res = { .status = SUCCESS, .tokens = list }; */
   tokenize_result res;
   res.status = SUCCESS;
-  res.tokens = list;
+  res.tokens = tlist;
   return res;
 }
 
 void print_list(token_list *list) {
-  while (list->next) {
-    printf("%s:\t\t%s\n", get_token_type_name(list->token.type), list->token.value);
-    list = list->next;
+  token_node *tokens = list->tail;
+  while (tokens->next) {
+    printf(
+      "%s:\t\t%s\n",
+      get_token_type_name(tokens->token.type),
+      tokens->token.value);
+    tokens = tokens->next;
   }
 }
 
