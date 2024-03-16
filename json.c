@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef enum {
   OBJECT,
@@ -77,7 +78,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
         token tk = { .type = LBRACE, .value = "}" };
         tk_l->token = tk;
         if (!list) {
-          err.error = "Root elemnt must be obj or array\n";
+          err.error = "Lex error.\n";
           return err;
         } else {
           head->next = tk_l;
@@ -102,7 +103,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
         token tk = { .type = LBRACE, .value = "]" };
         tk_l->token = tk;
         if (!list) {
-          err.error = "Root elemnt must be obj or array\n";
+          err.error = "Lex error.\n";
           return err;
         } else {
           head->next = tk_l;
@@ -115,7 +116,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
         token tk = { .type = COMMA, .value = "," };
         tk_l->token = tk;
         if (!list) {
-          err.error = "Root elemnt must be obj or array\n";
+          err.error = "Lex error.\n";
           return err;
         } else {
           head->next = tk_l;
@@ -128,8 +129,28 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
         token tk = { .type = COMMA, .value = ":" };
         tk_l->token = tk;
         if (!list) {
-          err.error = "Root elemnt must be obj or array\n";
+          err.error = "Lex error.\n";
           return err;
+        } else {
+          head->next = tk_l;
+        }
+        head = tk_l;
+        break;
+      }
+      case '"': {
+        token_list *tk_l = malloc(sizeof(token_list));
+        int begin = idx;
+        while (buf[++idx] != '"') {
+          if (buf[idx] == '\\') idx++;
+        }
+        int val_size = ++idx - begin;
+        char *val = malloc(val_size + 1);
+        strncpy(val, (char*)buf + begin, val_size);
+        val[val_size] = '\0';
+        token tk = { .type = IDENTIFIER, .value = val };
+        tk_l->token = tk;
+        if (!list) {
+          list = tk_l;
         } else {
           head->next = tk_l;
         }
