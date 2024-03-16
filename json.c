@@ -48,14 +48,15 @@ typedef struct {
   enum {
     SUCCESS, ERROR
   } status;
-} parse_result;
+  char *error;
+} tokenize_result;
 
-parse_result parse(char *buf, long buf_len, int idx) {
+tokenize_result tokenize(char *buf, long buf_len, int idx) {
   char ch = buf[idx];
   token_list *list = NULL;
   token_list *head = list;
 
-  parse_result err = { .status = ERROR };
+  tokenize_result err = { .status = ERROR };
 
   do {
     switch (ch) {
@@ -76,7 +77,7 @@ parse_result parse(char *buf, long buf_len, int idx) {
         token tk = { .type = LBRACE, .value = "}" };
         tk_l->token = tk;
         if (!list) {
-          fprintf(stderr, "error, root elemnt must be obj or array");
+          err.error = "Root elemnt must be obj or array\n";
           return err;
         } else {
           head->next = tk_l;
@@ -101,7 +102,7 @@ parse_result parse(char *buf, long buf_len, int idx) {
         token tk = { .type = LBRACE, .value = "]" };
         tk_l->token = tk;
         if (!list) {
-          fprintf(stderr, "error, root elemnt must be obj or array");
+          err.error = "Root elemnt must be obj or array\n";
           return err;
         } else {
           head->next = tk_l;
@@ -114,7 +115,7 @@ parse_result parse(char *buf, long buf_len, int idx) {
         token tk = { .type = COMMA, .value = "," };
         tk_l->token = tk;
         if (!list) {
-          fprintf(stderr, "error, root elemnt must be obj or array");
+          err.error = "Root elemnt must be obj or array\n";
           return err;
         } else {
           head->next = tk_l;
@@ -127,7 +128,7 @@ parse_result parse(char *buf, long buf_len, int idx) {
         token tk = { .type = COMMA, .value = ":" };
         tk_l->token = tk;
         if (!list) {
-          fprintf(stderr, "error, root elemnt must be obj or array");
+          err.error = "Root elemnt must be obj or array\n";
           return err;
         } else {
           head->next = tk_l;
@@ -139,7 +140,7 @@ parse_result parse(char *buf, long buf_len, int idx) {
   } while ((ch = buf[++idx]) != EOF);
 
   /* parse_result res = { .status = SUCCESS, .tokens = list }; */
-  parse_result res;
+  tokenize_result res;
   res.status = SUCCESS;
   res.tokens = list;
   return res;
@@ -155,7 +156,7 @@ void print_list(token_list *list) {
 int main(int argv, char **argc) {
   FILE *input = fopen("./test.json", "r");
   if (!input) {
-    fprintf(stderr, "Error opening file");
+    fprintf(stderr, "Error opening file\n");
   }
   //TODO: erorr handle here
   fseek(input, 0, SEEK_END);
@@ -164,7 +165,7 @@ int main(int argv, char **argc) {
 
   char *buffer = malloc(input_size);
   if (buffer == NULL) {
-    fprintf(stderr, "Error allocating buffer");
+    fprintf(stderr, "Error allocating buffer\n");
   }
 
   int count = 0;
@@ -176,10 +177,11 @@ int main(int argv, char **argc) {
   } while (ch != EOF);
   buffer[count] = '\0';
 
-  parse_result res = parse(buffer, input_size, 0);
+  tokenize_result res = tokenize(buffer, input_size, 0);
   if (res.status == SUCCESS) {
     print_list(res.tokens);
   } else {
-    fprintf(stderr, "Error parsing json ");
+    fprintf(stderr, "Error parsing json:\n");
+    fprintf(stderr, "%s", res.error);
   }
 }
