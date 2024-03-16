@@ -144,6 +144,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
           if (buf[idx] == '\\') idx++;
         }
         int val_size = ++idx - begin;
+        --idx;
         char *val = malloc(val_size + 1);
         strncpy(val, (char*)buf + begin, val_size);
         val[val_size] = '\0';
@@ -155,6 +156,32 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
           head->next = tk_l;
         }
         head = tk_l;
+        break;
+      }
+      default: {
+        if (ch > 32 && ch < 127) {
+          token_list *tk_l = malloc(sizeof(token_list));
+          int begin = idx;
+          while (buf[++idx] != '{'
+              && buf[idx]   != '}'
+              && buf[idx]   != '['
+              && buf[idx]   != ']'
+              && buf[idx]   != ':'
+              && buf[idx]   != ',') { }
+          int len = idx - begin;
+          --idx;
+          char *val = malloc(len + 1);
+          strncpy(val, (char*)buf + begin, len);
+          val[len] = '\0';
+          token tk = { .type = IDENTIFIER, .value = val };
+          tk_l->token = tk;
+          if (!list) {
+            list = tk_l;
+          } else {
+            head->next = tk_l;
+          }
+          head = tk_l;
+        }
         break;
       }
     }
