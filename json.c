@@ -109,6 +109,32 @@ parse_result parse(char *buf, long buf_len, int idx) {
         head = tk_l;
         break;
       }
+      case ',': {
+        token_list *tk_l = malloc(sizeof(token_list));
+        token tk = { .type = COMMA, .value = "," };
+        tk_l->token = tk;
+        if (!list) {
+          fprintf(stderr, "error, root elemnt must be obj or array");
+          return err;
+        } else {
+          head->next = tk_l;
+        }
+        head = tk_l;
+        break;
+      }
+      case ':': {
+        token_list *tk_l = malloc(sizeof(token_list));
+        token tk = { .type = COMMA, .value = ":" };
+        tk_l->token = tk;
+        if (!list) {
+          fprintf(stderr, "error, root elemnt must be obj or array");
+          return err;
+        } else {
+          head->next = tk_l;
+        }
+        head = tk_l;
+        break;
+      }
     }
   } while ((ch = buf[++idx]) != EOF);
 
@@ -117,6 +143,13 @@ parse_result parse(char *buf, long buf_len, int idx) {
   res.status = SUCCESS;
   res.tokens = list;
   return res;
+}
+
+void print_list(token_list *list) {
+  while (list->next) {
+    printf("%s\n", list->token.value);
+    list = list->next;
+  }
 }
 
 int main(int argv, char **argc) {
@@ -144,4 +177,9 @@ int main(int argv, char **argc) {
   buffer[count] = '\0';
 
   parse_result res = parse(buffer, input_size, 0);
+  if (res.status == SUCCESS) {
+    print_list(res.tokens);
+  } else {
+    fprintf(stderr, "Error parsing json ");
+  }
 }
