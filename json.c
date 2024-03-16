@@ -27,12 +27,27 @@ typedef enum {
   LBRACE,
   RBRACE,
   LBRACKET,
-  RBRACET,
+  RBRACKET,
   IDENTIFIER,
   STR,
   COLON,
   COMMA
 } token_type;
+
+char* get_token_type_name(token_type token) {
+  switch (token) {
+    case NONE:       return "NONE";
+    case LBRACE:     return "LBRACE";
+    case RBRACE:     return "RBRACE";
+    case LBRACKET:   return "LBRACKET";
+    case RBRACKET:   return "RBRACKET";
+    case IDENTIFIER: return "IDENTIFIER";
+    case STR:        return "STR";
+    case COLON:      return "COLON";
+    case COMMA:      return "COMMA";
+    default:         return "UNKNOWN!";
+  }
+}
 
 typedef struct {
   token_type type;
@@ -75,7 +90,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
       }
       case '}': {
         token_list *tk_l = malloc(sizeof(token_list));
-        token tk = { .type = LBRACE, .value = "}" };
+        token tk = { .type = RBRACE, .value = "}" };
         tk_l->token = tk;
         if (!list) {
           err.error = "Lex error.\n";
@@ -100,7 +115,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
       }
       case ']': {
         token_list *tk_l = malloc(sizeof(token_list));
-        token tk = { .type = LBRACE, .value = "]" };
+        token tk = { .type = RBRACKET, .value = "]" };
         tk_l->token = tk;
         if (!list) {
           err.error = "Lex error.\n";
@@ -126,7 +141,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
       }
       case ':': {
         token_list *tk_l = malloc(sizeof(token_list));
-        token tk = { .type = COMMA, .value = ":" };
+        token tk = { .type = COLON, .value = ":" };
         tk_l->token = tk;
         if (!list) {
           err.error = "Lex error.\n";
@@ -139,16 +154,16 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
       }
       case '"': {
         token_list *tk_l = malloc(sizeof(token_list));
-        int begin = idx;
+        int begin = ++idx;
         while (buf[++idx] != '"') {
           if (buf[idx] == '\\') idx++;
         }
         int val_size = ++idx - begin;
         --idx;
         char *val = malloc(val_size + 1);
-        strncpy(val, (char*)buf + begin, val_size);
+        strncpy(val, (char*)buf + begin, val_size - 1);
         val[val_size] = '\0';
-        token tk = { .type = IDENTIFIER, .value = val };
+        token tk = { .type = STR, .value = val };
         tk_l->token = tk;
         if (!list) {
           list = tk_l;
@@ -196,7 +211,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
 
 void print_list(token_list *list) {
   while (list->next) {
-    printf("%s\n", list->token.value);
+    printf("%s:\t\t%s\n", get_token_type_name(list->token.type), list->token.value);
     list = list->next;
   }
 }
