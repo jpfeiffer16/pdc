@@ -129,15 +129,22 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
       }
       case '"': {
         token_node *tk_l = new_token(tlist);
-        int begin = ++idx;
+        int begin = idx;
         while (buf[++idx] != '"') {
-          if (buf[idx] == '\\') idx++;
+          if (buf[idx] == '\\')
+            idx++;
         }
-        int val_size = ++idx - begin;
+        int val_size = ++idx - (begin + 1);
         --idx;
         char *val = malloc(val_size + 1);
-        strncpy(val, (char*)buf + begin, val_size - 1);
+        strncpy(val, (char*)buf + begin + 1, val_size - 1);
         val[val_size] = '\0';
+        //TODO: Is there a better way to do with that is both space and time efficient?
+        int shift = 0;
+        for (int i = 0; i < (val_size); i++) {
+          if (val[i] == '\\') shift++;
+          else if (shift) val[i - shift] = val[i];
+        }
         token tk = { .type = STR, .value = val };
         tk_l->token = tk;
         break;
