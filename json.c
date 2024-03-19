@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+/*
+  RFC: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+*/
 
 typedef enum {
   OBJECT,
@@ -52,6 +55,8 @@ char* get_token_type_name(token_type token) {
 typedef struct {
   token_type type;
   char *value;
+  int line;
+  int column;
 } token;
 
 typedef struct token_node {
@@ -87,52 +92,63 @@ typedef struct {
 
 tokenize_result tokenize(char *buf, long buf_len, int idx) {
   token_list *tlist = malloc(sizeof(token_list));
+  // TODO: Make this check more robust.
+  tokenize_result error = { .status = ERROR, .error = "emptly list" };
+  if (!buf_len) return error;
   char ch = buf[idx];
+  int last_newline = 0;
+  int line = 0;
 
   do {
+    if (ch == '\n') {
+      last_newline = idx;
+      line++;
+    }
     switch (ch) {
       case '{': {
         token_node *tk_l = new_token(tlist);
-        token tk = { .type = LBRACE, .value = "{" };
+        token tk = { .type = LBRACE, .value = "{", .line = line, .column = idx - last_newline };
         tk_l->token = tk;
         break;
       }
       case '}': {
         token_node *tk_l = new_token(tlist);
-        token tk = { .type = RBRACE, .value = "}" };
+        token tk = { .type = RBRACE, .value = "}", .line = line, .column = idx - last_newline };
         tk_l->token = tk;
         break;
       }
       case '[': {
         token_node *tk_l = new_token(tlist);
-        token tk = { .type = LBRACKET, .value = "[" };
+        token tk = { .type = LBRACKET, .value = "[", .line = line, .column = idx - last_newline };
         tk_l->token = tk;
         break;
       }
       case ']': {
         token_node *tk_l = new_token(tlist);
-        token tk = { .type = RBRACKET, .value = "]" };
+        token tk = { .type = RBRACKET, .value = "]", .line = line, .column = idx - last_newline };
         tk_l->token = tk;
         break;
       }
       case ',': {
         token_node *tk_l = new_token(tlist);
-        token tk = { .type = COMMA, .value = "," };
+        token tk = { .type = COMMA, .value = ",", .line = line, .column = idx - last_newline };
         tk_l->token = tk;
         break;
       }
       case ':': {
         token_node *tk_l = new_token(tlist);
-        token tk = { .type = COLON, .value = ":" };
+        token tk = { .type = COLON, .value = ":", .line = line, .column = idx - last_newline };
         tk_l->token = tk;
         break;
       }
       case '"': {
         token_node *tk_l = new_token(tlist);
         int begin = idx;
+        token tk = { .type = STR, .line = line, .column = idx - last_newline };
         while (buf[++idx] != '"') {
-          if (buf[idx] == '\\')
+          if (buf[idx] == '\\') {
             idx++;
+          }
         }
         int val_size = ++idx - (begin + 1);
         --idx;
@@ -142,16 +158,21 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
         //TODO: Is there a better way to do with that is both space and time efficient?
         int shift = 0;
         for (int i = 0; i < (val_size); i++) {
+          // TODO: Check the RFC. Do we need to allow only certain
+          // escape sequences, or can we safely assume we can allow
+          // any char to be escaped.
           if (val[i] == '\\') shift++;
           else if (shift) val[i - shift] = val[i];
         }
-        token tk = { .type = STR, .value = val };
+        tk.value = val;
+        // TODO: Don't do a copy here
         tk_l->token = tk;
         break;
       }
       default: {
         if (ch > 32 && ch < 127) {
           token_node *tk_l = new_token(tlist);
+          token tk = { .type = IDENTIFIER, .line = line, .column = idx - last_newline };
           int begin = idx;
           while (buf[++idx] != '{'
               && buf[idx]   != '}'
@@ -164,7 +185,8 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
           char *val = malloc(len + 1);
           strncpy(val, (char*)buf + begin, len);
           val[len] = '\0';
-          token tk = { .type = IDENTIFIER, .value = val };
+          tk.value = val;
+          // TODO: don't do a copy here.
           tk_l->token = tk;
         }
         break;
@@ -182,12 +204,25 @@ void print_list(token_list *list) {
   token_node *tokens = list->tail;
   while (tokens->next) {
     printf(
-      "%s:\t\t%s\n",
+      "%d,%d:%s:\t\t%s\n",
+      tokens->token.line,
+      tokens->token.column,
       get_token_type_name(tokens->token.type),
       tokens->token.value);
     tokens = tokens->next;
   }
 }
+
+void parse(token_list tokens) {
+}
+
+
+
+
+
+
+
+
 
 int main(int argv, char **argc) {
   FILE *input = fopen("./test.json", "r");
