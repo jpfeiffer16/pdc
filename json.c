@@ -43,7 +43,7 @@ typedef struct {
 } json_array;
 
 typedef struct {
-  float value;
+  float value; // TODO: should this be a double? Check the RFC.
 } json_number;
 
 typedef struct {
@@ -55,7 +55,7 @@ typedef struct {
 } json_bool;
 
 typedef struct {
-  short value;
+  void *value;
 } json_null;
 
 typedef union {
@@ -303,18 +303,27 @@ ast_result parse_node(token_node *lexer_node) {
     case TK_IDENTIFIER: {
       if (strcmp(tk.value, "null") == 0) {
         n->type = JSON_NULL;
+        n->value = malloc(sizeof(json_null));
+        // TODO: NULL assignment considered harmful?
+        n->value->j_null.value = NULL;
         break;
       }
       if (strcmp(tk.value, "false") == 0) {
         n->type = JSON_BOOL;
-        /* n.value = false; */
+        n->value = malloc(sizeof(json_bool));
+        n->value->j_bool.value = false;
         break;
       }
       if (strcmp(tk.value, "true") == 0) {
         n->type = JSON_BOOL;
-        /* n.value = true; */
+        n->value = malloc(sizeof(json_bool));
+        n->value->j_bool.value = true;
         break;
       }
+      n->type = JSON_NUMBER;
+      n->value = malloc(sizeof(json_number));
+      n->value->j_number.value = atof(tk.value);
+      break;
     }
     case TK_LBRACE: {
       n->type = JSON_OBJECT;
@@ -405,7 +414,6 @@ ast_result parse_node(token_node *lexer_node) {
 
         new_node(n->value->j_array.items, nod.ast_node);
         printf("nod type: %s\n", get_ast_node_type_name(nod.ast_node->type));
-        printf("nod value: %s\n", nod.ast_node->value->j_string.value);
 
         lexer_node = nod.last_node;
       }
@@ -421,13 +429,31 @@ ast_result parse_node(token_node *lexer_node) {
 
 void parse(token_list *tokens) {
   ast_result res = parse_node(tokens->tail);
-  printf(
-    "%s\n",
-    res.ast_node->value->j_array.items->head->value->j_string.value);
-  printf(
-    "%s\n",
-    res.ast_node->value->j_array.items->tail->value->j_string.value);
-  printf("AST: %s\n", get_ast_node_type_name(res.ast_node->type));
+  node *array = res.ast_node->value->j_array.items->tail;
+  while (array) {
+    printf("Array item: %s\n", get_ast_node_type_name(array->type));
+    if (array->type == JSON_STRING) {
+      printf("%s\n", array->value->j_string.value);
+    }
+    if (array->type == JSON_BOOL) {
+      printf("%d\n", array->value->j_bool.value);
+    }
+    if (array->type == JSON_NULL) {
+      printf("null\n");
+    }
+    if (array->type == JSON_NUMBER) {
+      printf("%f\n", array->value->j_number.value);
+    }
+    array = array->next;
+  }
+
+  /* printf( */
+  /*   "%d\n", */
+  /*   res.ast_node->value->j_array.items->head->value->j_bool.value); */
+  /* printf( */
+  /*   "%s\n", */
+  /*   res.ast_node->value->j_array.items->tail->value->j_string.value); */
+  /* printf("AST: %s\n", get_ast_node_type_name(res.ast_node->type)); */
 }
 
 
