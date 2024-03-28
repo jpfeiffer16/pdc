@@ -34,10 +34,59 @@ char* get_ast_node_type_name(node_type token) {
   }
 }
 
+typedef struct {
+  char **properties;
+} json_object;
+
+typedef struct {
+  struct node_list *items;
+} json_array;
+
+typedef struct {
+  float value;
+} json_number;
+
+typedef struct {
+  char *value;
+} json_string;
+
+typedef struct {
+  bool value;
+} json_bool;
+
+typedef struct {
+  short value;
+} json_null;
+
+typedef union {
+  json_object j_object;
+  json_array j_array;
+  json_number j_number;
+  json_string j_string;
+  json_bool j_bool;
+  json_null j_null;
+} json_item;
+
 typedef struct node {
+  struct node *next;
   node_type type;
-  struct node *children;
+  json_item *value;
 } node;
+
+typedef struct node_list {
+  node *tail;
+  node *head;
+} node_list;
+
+void new_node(node_list *list, node *nod) {
+  if (!list->tail) {
+    list->tail = nod;
+    list->head = nod;
+  } else {
+    list->head->next = nod;
+    list->head = nod;
+  }
+}
 
 typedef enum {
   TK_NONE,
@@ -115,8 +164,9 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
 
   do {
     if (ch == '\n') {
-      last_newline = idx;
+      last_newline = idx + 1;
       line++;
+      continue;
     }
     switch (ch) {
       case '{': {
@@ -193,7 +243,9 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
               && buf[idx]   != '['
               && buf[idx]   != ']'
               && buf[idx]   != ':'
-              && buf[idx]   != ',') { }
+              && buf[idx]   != ','
+              && buf[idx]   != EOF
+              && buf[idx]   != '\n') { }
           int len = idx - begin;
           --idx;
           char *val = malloc(len + 1);
@@ -216,7 +268,7 @@ tokenize_result tokenize(char *buf, long buf_len, int idx) {
 
 void print_list(token_list *list) {
   token_node *tokens = list->tail;
-  while (tokens->next) {
+  do {
     printf(
       "%d,%d:%s:\t\t%s\n",
       tokens->token.line,
@@ -224,12 +276,12 @@ void print_list(token_list *list) {
       get_token_type_name(tokens->token.type),
       tokens->token.value);
     tokens = tokens->next;
-  }
+  } while (tokens);
 }
 
 typedef struct {
   char *error;
-  node ast_node;
+  node *ast_node;
   token_node *last_node;
 } ast_result;
 
@@ -238,30 +290,34 @@ typedef struct {
 ast_result parse_node(token_node *lexer_node) { 
   token tk = lexer_node->token;
   ast_result res = { .error = NULL };
-  node n = { };
+  node *n = malloc(sizeof(node));
+  res.last_node = lexer_node;
   switch(tk.type) {
     case TK_STRING: {
-      n.type = JSON_STRING;
+      n->type = JSON_STRING;
+
+      n->value = malloc(sizeof(json_string));
+      n->value->j_string.value = tk.value;
       break;
     }
     case TK_IDENTIFIER: {
-      if (strcmp(tk.value, "null")) {
-        n.type = JSON_NULL;
+      if (strcmp(tk.value, "null") == 0) {
+        n->type = JSON_NULL;
         break;
       }
-      if (strcmp(tk.value, "false")) {
-        n.type = JSON_BOOL;
+      if (strcmp(tk.value, "false") == 0) {
+        n->type = JSON_BOOL;
         /* n.value = false; */
         break;
       }
-      if (strcmp(tk.value, "true")) {
-        n.type = JSON_BOOL;
+      if (strcmp(tk.value, "true") == 0) {
+        n->type = JSON_BOOL;
         /* n.value = true; */
         break;
       }
     }
     case TK_LBRACE: {
-      n.type = JSON_OBJECT;
+      n->type = JSON_OBJECT;
       int nest_level = 1;
       while (nest_level) {
         lexer_node = lexer_node->next;
@@ -271,35 +327,91 @@ ast_result parse_node(token_node *lexer_node) {
             nest_level--;
             break;
           }
-          case TK_STRING: {
-            if (lexer_node->next->token.type != TK_COLON) {
-              n.type = JSON_ERROR;
-              res.error = malloc(MAX_JSON_ERROR_SIZE);
-              res.error = sprintf(
-                res.error,
-                "Error parsing object. Colon expected: %d, %d",
-                lexer_node->next->token.line,
-                lexer_node->next->token.column);
-              return res;
-            }
-            parse_node(lexer_node->next);
-            res.ast_node = n;
-            return res;
-          }
-          default: {
-            n.type = JSON_ERROR;
-            res.error = malloc(MAX_JSON_ERROR_SIZE);
-            snprintf(
-              res.error,
-              MAX_JSON_ERROR_SIZE,
-              "Error parsing object: %d, %d",
-              lexer_node->token.line,
-              lexer_node->token.column);
-            res.ast_node = n;
-            return res;
-          }
+          /* case TK_STRING: { */
+          /*   if (lexer_node->next->token.type != TK_COLON) { */
+          /*     n.type = JSON_ERROR; */
+          /*     res.error = malloc(MAX_JSON_ERROR_SIZE); */
+          /*     sprintf( */
+          /*       res.error, */
+          /*       "Error parsing object. Colon expected: %d, %d", */
+          /*       lexer_node->next->token.line, */
+          /*       lexer_node->next->token.column); */
+          /*     return res; */
+          /*   } */
+          /*   // Print the type of the next next lexer node. */
+          /*   printf("Next next: %s\n", get_token_type_name(lexer_node->next->next->token.type)); */
+          /*   ast_result nod = parse_node(lexer_node->next->next); */
+          /*   #<{(| lexer_node = nod.last_node; |)}># */
+          /*   printf("Next node: %s\n", get_token_type_name(nod.last_node->token.type)); */
+          /*   printf("AST: %s\n", get_ast_node_type_name(nod.ast_node.type)); */
+          /*   res.ast_node = n; */
+          /* } */
+          /* default: { */
+          /*   n.type = JSON_ERROR; */
+          /*   res.error = malloc(MAX_JSON_ERROR_SIZE); */
+          /*   snprintf( */
+          /*     res.error, */
+          /*     MAX_JSON_ERROR_SIZE, */
+          /*     "Error parsing object: %d, %d", */
+          /*     lexer_node->token.line, */
+          /*     lexer_node->token.column); */
+          /*   res.ast_node = n; */
+          /*   return res; */
+          /* } */
         }
       }
+
+      json_item *j_item = malloc(sizeof(json_item));
+      char *test[2] = { "test", "test2" };
+      j_item->j_object.properties = test;
+      n->value = j_item;
+      res.last_node = lexer_node;
+      break;
+    }
+    case TK_LBRACKET: {
+      n->type = JSON_ARRAY;
+      n->value = malloc(sizeof(json_array));
+      n->value->j_array.items = malloc(sizeof(node_list));
+
+      int nest_level = 1;
+      while (nest_level) {
+        lexer_node = lexer_node->next;
+        if (lexer_node->token.type == TK_RBRACKET) {
+          nest_level--;
+          continue;
+        }
+
+        if (lexer_node->token.type == TK_COMMA) {
+          continue;
+        }
+
+        ast_result nod = parse_node(lexer_node);
+        if (nod.error) {
+          res.error = nod.error;
+          return res;
+        }
+
+        if (nod.ast_node->type == JSON_UNKOWN) {
+          n->type = JSON_ERROR;
+          res.error = malloc(MAX_JSON_ERROR_SIZE);
+          snprintf(
+            res.error,
+            MAX_JSON_ERROR_SIZE,
+            "Error parsing array: %d, %d",
+            lexer_node->token.line,
+            lexer_node->token.column);
+          return res;
+        }
+
+        new_node(n->value->j_array.items, nod.ast_node);
+        printf("nod type: %s\n", get_ast_node_type_name(nod.ast_node->type));
+        printf("nod value: %s\n", nod.ast_node->value->j_string.value);
+
+        lexer_node = nod.last_node;
+      }
+
+      res.last_node = lexer_node;
+      break;
     }
   }
 
@@ -309,7 +421,13 @@ ast_result parse_node(token_node *lexer_node) {
 
 void parse(token_list *tokens) {
   ast_result res = parse_node(tokens->tail);
-  printf("AST: %s\n", get_ast_node_type_name(res.ast_node.type));
+  printf(
+    "%s\n",
+    res.ast_node->value->j_array.items->head->value->j_string.value);
+  printf(
+    "%s\n",
+    res.ast_node->value->j_array.items->tail->value->j_string.value);
+  printf("AST: %s\n", get_ast_node_type_name(res.ast_node->type));
 }
 
 
